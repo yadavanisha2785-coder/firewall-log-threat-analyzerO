@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Firewall Log Threat Analyzer | SOC Dashboard</title>
+
+  <!-- ========================================================
+       STYLES — dark SOC/cybersecurity theme
+  ======================================================== -->
+  <style>
+    /* ---------- Reset & Variables ---------- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface2:  #1c2333;
+      --border:    #30363d;
+      --text:      #c9d1d9;
+      --muted:     #8b949e;
+      --accent:    #58a6ff;
+      --green:     #3fb950;
+      --yellow:    #d29922;
+      --red:       #f85149;
+      --purple:    #bc8cff;
+      --orange:    #e3b341;
+      --font:      'Segoe UI', system-ui, sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ---------- Scrollbar ---------- */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ---------- Layout ---------- */
+    .app-wrapper { display: flex; min-height: 100vh; }
+
+    /* ---- Sidebar ---- */
+    .sidebar {
+      width: 220px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 100;
+      transition: transform .25s ease;
+    }
+    .sidebar-logo {
+      padding: 20px 18px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .sidebar-logo .logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 100%);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .sidebar-logo .logo-text { font-weight: 700; font-size: 13px; color: #fff; line-height: 1.3; }
+    .sidebar-logo .logo-sub { font-size: 10px; color: var(--muted); }
+
+    .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+    .nav-section-label {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .8px; color: var(--muted);
+      padding: 10px 18px 4px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 18px;
+      color: var(--muted);
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: all .18s;
+      font-size: 13px;
+      user-select: none;
+    }
+    .nav-item:hover { color: var(--text); background: var(--surface2); }
+    .nav-item.active {
+      color: var(--accent);
+      background: rgba(88,166,255,.08);
+      border-left-color: var(--accent);
+    }
+    .nav-item .nav-icon { width: 16px; text-align: center; font-size: 14px; }
+    .nav-badge {
+      margin-left: auto;
+      background: var(--red);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 9px;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    .sidebar-footer {
+      padding: 14px 18px;
+      border-top: 1px solid var(--border);
+      font-size: 11px; color: var(--muted);
+    }
+
+    /* ---- Main content ---- */
+    .main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+    /* ---- Top Bar ---- */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 56px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 50;
+      flex-shrink: 0;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .hamburger {
+      display: none; cursor: pointer;
+      font-size: 18px; color: var(--muted);
+      background: none; border: none;
+    }
+    .page-title { font-size: 16px; font-weight: 700; color: #fff; }
+    .page-subtitle { font-size: 11px; color: var(--muted); margin-left: 4px; }
+
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 12px; font-weight: 500;
+      cursor: pointer;
+      transition: all .18s;
+      white-space: nowrap;
+      font-family: var(--font);
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-primary { background: var(--accent); color: #0d1117; border-color: var(--accent); font-weight: 600; }
+    .btn-primary:hover { background: #79bcff; border-color: #79bcff; color: #0d1117; }
+    .btn-danger { background: var(--red); color: #fff; border-color: var(--red); }
+    .btn-danger:hover { background: #ff7b76; border-color: #ff7b76; }
+
+    /* ---- Page Content ---- */
+    .content { padding: 24px; flex: 1; overflow-x: hidden; }
+
+    /* ---- Sections ---- */
+    .section { display: none; }
+    .section.active { display: block; }
+
+    /* ---- Stat Cards ---- */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+      display: flex; flex-direction: column; gap: 4px;
+      position: relative; overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    }
+    .stat-card.blue::before  { background: var(--accent); }
+    .stat-card.green::before { background: var(--green); }
+    .stat-card.red::before   { background: var(--red); }
+    .stat-card.yellow::before{ background: var(--yellow); }
+    .stat-card.purple::before{ background: var(--purple); }
+    .stat-card.orange::before{ background: var(--orange); }
+
+    .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+    .stat-value { font-size: 28px; font-weight: 700; color: #fff; line-height: 1.1; }
+    .stat-sub   { font-size: 11px; color: var(--muted); }
+    .stat-icon  { position: absolute; right: 14px; top: 14px; font-size: 22px; opacity: .25; }
+
+    /* ---- Section Header ---- */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+    }
+    .section-title {
+      font-size: 14px; font-weight: 700; color: #fff;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title .dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; } 50% { opacity: .4; }
+    }
+
+    /* ---- Card ---- */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .card-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 8px;
+    }
+    .card-title { font-size: 13px; font-weight: 700; color: #fff; }
+    .card-body { padding: 16px 18px; }
+
+    /* ---- Tables ---- */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    thead th {
+      background: var(--surface2);
+      color: var(--muted);
+      text-align: left;
+      padding: 9px 12px;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+    }
+    tbody tr { border-bottom: 1px solid rgba(48,54,61,.5); transition: background .15s; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody td { padding: 8px 12px; color: var(--text); white-space: nowrap; }
+    tbody td.wrap { white-space: normal; }
+
+    /* ---- Badges ---- */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .4px;
+    }
+    .badge-green  { background: rgba(63,185,80,.15);  color: var(--green); }
+    .badge-red    { background: rgba(248,81,73,.15);  color: var(--red); }
+    .badge-yellow { background: rgba(210,153,34,.15); color: var(--yellow); }
+    .badge-blue   { background: rgba(88,166,255,.15); color: var(--accent); }
+    .badge-purple { background: rgba(188,140,255,.15);color: var(--purple); }
+    .badge-orange { background: rgba(227,179,65,.15); color: var(--orange); }
+    .badge-muted  { background: rgba(139,148,158,.12);color: var(--muted); }
+
+    /* ---- Search / Filter Bar ---- */
+    .filter-bar {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-bottom: 14px;
+    }
+    .filter-bar input, .filter-bar select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 7px 12px;
+      font-size: 12.5px;
+      font-family: var(--font);
+      outline: none;
+      transition: border-color .18s;
+    }
+    .filter-bar input:focus, .filter-bar select:focus { border-color: var(--accent); }
+    .filter-bar input { min-width: 200px; flex: 1; }
+    .filter-bar select option { background: var(--surface); }
+
+    /* ---- Upload Zone ---- */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 36px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      margin-bottom: 20px;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(88,166,255,.04);
+    }
+    .upload-zone .upload-icon { font-size: 36px; margin-bottom: 10px; }
+    .upload-zone p { color: var(--muted); font-size: 13px; }
+    .upload-zone strong { color: var(--accent); }
+    #fileInput { display: none; }
+
+    /* ---- Threat Cards ---- */
+    .threat-list { display: flex; flex-direction: column; gap: 10px; }
+    .threat-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex; gap: 14px; align-items: flex-start;
+      border-left: 4px solid transparent;
+    }
+    .threat-item.high   { border-left-color: var(--red); }
+    .threat-item.medium { border-left-color: var(--yellow); }
+    .threat-item.low    { border-left-color: var(--green); }
+
+    .threat-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+    .threat-body { flex: 1; min-width: 0; }
+    .threat-ip   { font-weight: 700; color: #fff; font-size: 13px; margin-bottom: 2px; }
+    .threat-reason { color: var(--muted); font-size: 12px; }
+    .threat-meta {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-top: 8px; align-items: center;
+    }
+    .threat-count { font-size: 12px; color: var(--muted); }
+    .threat-rec {
+      margin-left: auto;
+      font-size: 11px; font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 4px;
+    }
+    .rec-block     { background: rgba(248,81,73,.15); color: var(--red); }
+    .rec-monitor   { background: rgba(210,153,34,.15); color: var(--yellow); }
+    .rec-investigate { background: rgba(188,140,255,.15); color: var(--purple); }
+
+    /* ---- Bar chart (CSS only) ---- */
+    .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+    .bar-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+    .bar-label { width: 130px; text-align: right; color: var(--muted); flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bar-track { flex: 1; height: 10px; background: var(--surface2); border-radius: 5px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 5px; transition: width .6s ease; }
+    .bar-val   { width: 36px; color: var(--text); font-weight: 600; }
+
+    /* ---- Donut chart (SVG) ---- */
+    .donut-wrap { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+    .donut-legend { display: flex; flex-direction: column; gap: 8px; }
+    .legend-item  { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+    .legend-dot   { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ---- Alert Banner ---- */
+    .alert-banner {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px 16px; border-radius: 8px;
+      font-size: 12.5px;
+      margin-bottom: 12px;
+    }
+    .alert-banner.danger  { background: rgba(248,81,73,.12);  border: 1px solid rgba(248,81,73,.3);  color: #fca5a5; }
+    .alert-banner.warning { background: rgba(210,153,34,.12); border: 1px solid rgba(210,153,34,.3); color: #fcd34d; }
+    .alert-banner.info    { background: rgba(88,166,255,.1);  border: 1px solid rgba(88,166,255,.25); color: #93c5fd; }
+
+    /* ---- Vuln items ---- */
+    .vuln-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex; gap: 12px; flex-wrap: wrap;
+      border-left: 4px solid transparent;
+    }
+    .vuln-item.critical { border-left-color: #ff4d4f; }
+    .vuln-item.high     { border-left-color: var(--red); }
+    .vuln-item.medium   { border-left-color: var(--yellow); }
+    .vuln-item.low      { border-left-color: var(--green); }
+    .vuln-main { flex: 1; min-width: 0; }
+    .vuln-id   { font-weight: 700; color: var(--accent); font-size: 12px; }
+    .vuln-name { color: #fff; font-weight: 600; margin: 2px 0; }
+    .vuln-desc { color: var(--muted); font-size: 12px; }
+    .vuln-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+
+    /* ---- Timeline (activity) ---- */
+    .timeline { display: flex; flex-direction: column; gap: 0; }
+    .tl-item  { display: flex; gap: 14px; padding: 10px 0; border-bottom: 1px solid rgba(48,54,61,.4); }
+    .tl-item:last-child { border-bottom: none; }
+    .tl-time  { width: 70px; font-size: 11px; color: var(--muted); flex-shrink: 0; padding-top: 2px; }
+    .tl-dot-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+    .tl-dot   { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; }
+    .tl-line  { flex: 1; width: 1px; background: var(--border); margin-top: 2px; }
+    .tl-body  { flex: 1; }
+    .tl-title { font-size: 12.5px; color: var(--text); margin-bottom: 2px; }
+    .tl-sub   { font-size: 11px; color: var(--muted); }
+
+    /* ---- Component table ---- */
+    .comp-status-ok      { color: var(--green); }
+    .comp-status-vuln    { color: var(--red); }
+    .comp-status-warn    { color: var(--yellow); }
+    .comp-status-unknown { color: var(--muted); }
+
+    /* ---- Report ---- */
+    .report-section { margin-bottom: 20px; }
+    .report-kv { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .kv-pair { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; }
+    .kv-key  { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+    .kv-val  { font-size: 14px; font-weight: 700; color: #fff; }
+
+    /* ---- Empty state ---- */
+    .empty-state {
+      text-align: center; padding: 40px 20px; color: var(--muted); font-size: 13px;
+    }
+    .empty-state .empty-icon { font-size: 36px; margin-bottom: 10px; }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .main { margin-left: 0; }
+      .hamburger { display: block; }
+      .sidebar-overlay {
+        display: none; position: fixed; inset: 0;
+        background: rgba(0,0,0,.5); z-index: 99;
+      }
+      .sidebar-overlay.show { display: block; }
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+      .report-kv { grid-template-columns: 1fr; }
+      .donut-wrap { justify-content: center; }
+    }
+    @media (max-width: 400px) {
+      .stat-grid { grid-template-columns: 1fr; }
+      .content { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- =========================================================
+     LAYOUT WRAPPER
+========================================================= -->
+<div class="app-wrapper">
+
+  <!-- ---- Sidebar ---- -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🛡️</div>
+      <div>
+        <div class="logo-text">FireWall Analyzer</div>
+        <div class="logo-sub">SOC Dashboard v1.0</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Overview</div>
+      <div class="nav-item active" onclick="navigate('dashboard')">
+        <span class="nav-icon">📊</span> Dashboard
+      </div>
+
+      <div class="nav-section-label">Logs</div>
+      <div class="nav-item" onclick="navigate('logs')">
+        <span class="nav-icon">📋</span> Firewall Logs
+      </div>
+
+      <div class="nav-section-label">Security</div>
+      <div class="nav-item" onclick="navigate('threats')">
+        <span class="nav-icon">⚠️</span> Threat Analysis
+        <span class="nav-badge" id="threatBadge">0</span>
+      </div>
+      <div class="nav-item" onclick="navigate('vulns')">
+        <span class="nav-icon">🔍</span> Vuln Scanner
+        <span class="nav-badge" id="vulnBadge">0</span>
+      </div>
+
+      <div class="nav-section-label">Inventory</div>
+      <div class="nav-item" onclick="navigate('inventory')">
+        <span class="nav-icon">🗂️</span> SW Inventory
+      </div>
+
+      <div class="nav-section-label">Reporting</div>
+      <div class="nav-item" onclick="navigate('report')">
+        <span class="nav-icon">📄</span> Reports
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      🔒 Secure Mode Active<br>
+      <span id="clockDisplay"></span>
+    </div>
+  </aside>
+
+  <!-- Overlay for mobile -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <!-- ---- Main ---- -->
+  <div class="main">
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="hamburger" onclick="toggleSidebar()">☰</button>
+        <span class="page-title" id="pageTitle">Dashboard</span>
+        <span class="page-subtitle" id="pageSubtitle">Overview &amp; Summary</span>
+      </div>
+      <div class="topbar-right">
+        <button class="btn" onclick="navigate('logs')">📤 Upload Logs</button>
+        <button class="btn btn-primary" onclick="navigate('report')">📄 Report</button>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- ===================================================
+           SECTION 1 — DASHBOARD
+      =================================================== -->
+      <div class="section active" id="sec-dashboard">
+
+        <!-- Stat cards -->
+        <div class="stat-grid">
+          <div class="stat-card blue">
+            <div class="stat-icon">📋</div>
+            <div class="stat-label">Total Logs</div>
+            <div class="stat-value" id="s-total">0</div>
+            <div class="stat-sub">Firewall entries</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-icon">✅</div>
+            <div class="stat-label">Allowed</div>
+            <div class="stat-value" id="s-allowed">0</div>
+            <div class="stat-sub">Connections permitted</div>
+          </div>
+          <div class="stat-card red">
+            <div class="stat-icon">🚫</div>
+            <div class="stat-label">Blocked</div>
+            <div class="stat-value" id="s-blocked">0</div>
+            <div class="stat-sub">Connections denied</div>
+          </div>
+          <div class="stat-card yellow">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-label">Threats</div>
+            <div class="stat-value" id="s-threats">0</div>
+            <div class="stat-sub">Suspicious IPs</div>
+          </div>
+          <div class="stat-card red">
+            <div class="stat-icon">🔴</div>
+            <div class="stat-label">High Risk</div>
+            <div class="stat-value" id="s-high">0</div>
+            <div class="stat-sub">Immediate action</div>
+          </div>
+          <div class="stat-card yellow">
+            <div class="stat-icon">🟡</div>
+            <div class="stat-label">Medium Risk</div>
+            <div class="stat-value" id="s-medium">0</div>
+            <div class="stat-sub">Needs monitoring</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-icon">🟢</div>
+            <div class="stat-label">Low Risk</div>
+            <div class="stat-value" id="s-low">0</div>
+            <div class="stat-sub">Informational</div>
+          </div>
+          <div class="stat-card purple">
+            <div class="stat-icon">🔓</div>
+            <div class="stat-label">Vulnerable</div>
+            <div class="stat-value" id="s-vuln">0</div>
+            <div class="stat-sub">SW components</div>
+          </div>
+        </div>
+
+        <!-- Alert banners (dynamic) -->
+        <div id="alertBanners"></div>
+
+        <!-- Charts row -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;" id="chartGrid">
+          <!-- Traffic breakdown donut -->
+          <div class="card">
+            <div class="card-header"><span class="card-title">Traffic Breakdown</span></div>
+            <div class="card-body">
+              <div class="donut-wrap">
+                <svg id="donutSvg" width="110" height="110" viewBox="0 0 110 110" style="flex-shrink:0">
+                  <circle cx="55" cy="55" r="40" fill="none" stroke="#1c2333" stroke-width="18"/>
+                  <circle id="donut-allowed" cx="55" cy="55" r="40" fill="none"
+                    stroke="#3fb950" stroke-width="18"
+                    stroke-dasharray="0 251" stroke-dashoffset="63"
+                    style="transition:stroke-dasharray .7s ease"/>
+                  <circle id="donut-blocked" cx="55" cy="55" r="40" fill="none"
+                    stroke="#f85149" stroke-width="18"
+                    stroke-dasharray="0 251" stroke-dashoffset="63"
+                    style="transition:stroke-dasharray .7s ease; transform-origin:55px 55px"/>
+                  <text x="55" y="52" text-anchor="middle" fill="#c9d1d9" font-size="11" font-family="Segoe UI,sans-serif">Traffic</text>
+                  <text x="55" y="65" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold" id="donutPct">–</text>
+                </svg>
+                <div class="donut-legend">
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Allowed <strong id="lg-allowed" style="color:#fff;margin-left:4px">0</strong></div>
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div> Blocked <strong id="lg-blocked" style="color:#fff;margin-left:4px">0</strong></div>
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div> Threats <strong id="lg-threats" style="color:#fff;margin-left:4px">0</strong></div>
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div> Vulnerable <strong id="lg-vuln" style="color:#fff;margin-left:4px">0</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top attacking IPs bar chart -->
+          <div class="card">
+            <div class="card-header"><span class="card-title">Top Suspicious IPs</span></div>
+            <div class="card-body">
+              <div class="bar-chart" id="ipBarChart">
+                <div class="empty-state"><div class="empty-icon">📊</div>No data yet</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Activity Timeline -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title"><span class="dot"></span>&nbsp;Recent Activity</span>
+          </div>
+          <div class="card-body" style="padding:0 18px">
+            <div class="timeline" id="activityTimeline"></div>
+          </div>
+        </div>
+      </div><!-- /dashboard -->
+
+      <!-- ===================================================
+           SECTION 2 — FIREWALL LOGS
+      =================================================== -->
+      <div class="section" id="sec-logs">
+        <!-- Upload zone -->
+        <div class="upload-zone" id="uploadZone"
+          onclick="document.getElementById('fileInput').click()"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="handleDrop(event)">
+          <div class="upload-icon">📂</div>
+          <p><strong>Click to upload</strong> or drag &amp; drop a firewall log file</p>
+          <p style="margin-top:6px;font-size:12px">Supports .log, .txt, .csv — or use the sample data already loaded</p>
+          <input type="file" id="fileInput" accept=".log,.txt,.csv" onchange="handleFileUpload(event)" />
+        </div>
+
+        <!-- Search / filter -->
+        <div class="filter-bar">
+          <input type="text" id="logSearch" placeholder="🔍  Search by IP or protocol…" oninput="renderLogTable()" />
+          <select id="logStatusFilter" onchange="renderLogTable()">
+            <option value="">All Status</option>
+            <option value="ALLOW">Allowed</option>
+            <option value="BLOCK">Blocked</option>
+          </select>
+          <select id="logProtoFilter" onchange="renderLogTable()">
+            <option value="">All Protocols</option>
+            <option value="TCP">TCP</option>
+            <option value="UDP">UDP</option>
+            <option value="ICMP">ICMP</option>
+            <option value="HTTP">HTTP</option>
+            <option value="HTTPS">HTTPS</option>
+          </select>
+          <button class="btn" onclick="resetLogFilters()">✖ Clear</button>
+        </div>
+
+        <!-- Log Table -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Firewall Log Entries</span>
+            <span id="logCount" style="font-size:12px;color:var(--muted)">0 entries</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Timestamp</th>
+                  <th>Source IP</th>
+                  <th>Src Port</th>
+                  <th>Dest IP</th>
+                  <th>Dst Port</th>
+                  <th>Protocol</th>
+                  <th>Action</th>
+                  <th>Bytes</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="logTableBody">
+                <tr><td colspan="10" class="empty-state">No logs loaded. Upload a file or scroll down.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /logs -->
+
+      <!-- ===================================================
+           SECTION 3 — THREAT ANALYSIS
+      =================================================== -->
+      <div class="section" id="sec-threats">
+        <div class="filter-bar">
+          <input type="text" id="threatSearch" placeholder="🔍  Search IP…" oninput="renderThreats()" />
+          <select id="threatRiskFilter" onchange="renderThreats()">
+            <option value="">All Risk Levels</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <button class="btn" onclick="document.getElementById('threatSearch').value='';document.getElementById('threatRiskFilter').value='';renderThreats()">✖ Clear</button>
+        </div>
+        <div class="threat-list" id="threatList">
+          <div class="empty-state"><div class="empty-icon">🛡️</div>No threats detected. Load logs to analyse.</div>
+        </div>
+      </div><!-- /threats -->
+
+      <!-- ===================================================
+           SECTION 4 — VULNERABILITY SCANNER
+      =================================================== -->
+      <div class="section" id="sec-vulns">
+        <div class="alert-banner info" style="margin-bottom:16px">
+          ℹ️ &nbsp;The scanner compares your software inventory against a built-in CVE sample database. Add real inventory entries in the <strong>SW Inventory</strong> section.
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header">
+            <span class="card-title">Vulnerability Scan Results</span>
+            <button class="btn btn-primary" onclick="runVulnScan()">▶ Run Scan</button>
+          </div>
+          <div class="card-body" id="vulnResults">
+            <div class="empty-state"><div class="empty-icon">🔍</div>Click "Run Scan" to detect vulnerabilities.</div>
+          </div>
+        </div>
+      </div><!-- /vulns -->
+
+      <!-- ===================================================
+           SECTION 5 — SOFTWARE INVENTORY
+      =================================================== -->
+      <div class="section" id="sec-inventory">
+        <div class="section-header">
+          <div class="section-title">Software Component Inventory</div>
+          <button class="btn btn-primary" onclick="showAddCompModal()">+ Add Component</button>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Component</th>
+                  <th>Version</th>
+                  <th>Type</th>
+                  <th>Vendor</th>
+                  <th>Last Updated</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="inventoryTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Add Component Modal (inline, hidden) -->
+        <div id="addCompModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:center;justify-content:center">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:420px;margin:16px">
+            <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:16px">Add Component</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <input id="nc-name"    placeholder="Component name"  style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-size:13px;font-family:var(--font);outline:none;">
+              <input id="nc-version" placeholder="Version (e.g. 2.1.0)" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-size:13px;font-family:var(--font);outline:none;">
+              <input id="nc-vendor"  placeholder="Vendor"          style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-size:13px;font-family:var(--font);outline:none;">
+              <select id="nc-type" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-size:13px;font-family:var(--font);outline:none;">
+                <option value="OS">OS</option>
+                <option value="Library">Library</option>
+                <option value="Framework">Framework</option>
+                <option value="Service">Service</option>
+                <option value="Database">Database</option>
+                <option value="Web Server">Web Server</option>
+                <option value="Firewall">Firewall</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+              <button class="btn" onclick="closeAddCompModal()">Cancel</button>
+              <button class="btn btn-primary" onclick="addComponent()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div><!-- /inventory -->
+
+      <!-- ===================================================
+           SECTION 6 — REPORT
+      =================================================== -->
+      <div class="section" id="sec-report">
+        <div class="section-header">
+          <div class="section-title">Security Analysis Report</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" onclick="downloadReport()">⬇ Download Report</button>
+          </div>
+        </div>
+
+        <div class="report-section">
+          <div class="card-title" style="margin-bottom:10px">Executive Summary</div>
+          <div class="report-kv" id="reportKV"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">Threat Summary</span></div>
+          <div class="card-body" id="reportThreats"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">Vulnerable Components</span></div>
+          <div class="card-body" id="reportVulns"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">Top Blocked IPs</span></div>
+          <div class="card-body" id="reportBlockedIPs"></div>
+        </div>
+      </div><!-- /report -->
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app-wrapper -->
+
+
+<!-- =========================================================
+     JAVASCRIPT — Data, Logic, Rendering
+========================================================= -->
+<script>
+'use strict';
+
+// ============================================================
+// 1.  SAMPLE DATA — firewall logs loaded on page start
+//     Format: timestamp, srcIP, srcPort, dstIP, dstPort,
+//             protocol, action, bytes
+// ============================================================
+const SAMPLE_LOGS = [
+  ["2025-06-01 08:02:11","192.168.1.101",52411,"10.0.0.1",80,"HTTP","ALLOW",1240],
+  ["2025-06-01 08:02:15","192.168.1.101",52412,"10.0.0.1",80,"HTTP","ALLOW",980],
+  ["2025-06-01 08:02:19","192.168.1.101",52413,"10.0.0.1",80,"HTTP","ALLOW",760],
+  ["2025-06-01 08:03:01","203.0.113.45",44231,"10.0.0.1",22,"TCP","BLOCK",0],
+  ["2025-06-01 08:03:04","203.0.113.45",44232,"10.0.0.1",22,"TCP","BLOCK",0],
+  ["2025-06-01 08:03:07","203.0.113.45",44233,"10.0.0.1",22,"TCP","BLOCK",0],
+  ["2025-06-01 08:03:10","203.0.113.45",44234,"10.0.0.1",22,"TCP","BLOCK",0],
+  ["2025-06-01 08:03:13","203.0.113.45",44235,"10.0.0.1",22,"TCP","BLOCK",0],
+  ["2025-06-01 08:04:00","10.10.10.77",33001,"10.0.0.1",21,"FTP","BLOCK",0],
+  ["2025-06-01 08:04:05","10.10.10.77",33002,"10.0.0.1",23,"TELNET","BLOCK",0],
+  ["2025-06-01 08:04:10","10.10.10.77",33003,"10.0.0.1",25,"SMTP","BLOCK",0],
+  ["2025-06-01 08:04:15","10.10.10.77",33004,"10.0.0.1",443,"HTTPS","BLOCK",0],
+  ["2025-06-01 08:04:20","10.10.10.77",33005,"10.0.0.1",8080,"HTTP","BLOCK",0],
+  ["2025-06-01 08:04:25","10.10.10.77",33006,"10.0.0.1",3306,"TCP","BLOCK",0],
+  ["2025-06-01 08:04:30","10.10.10.77",33007,"10.0.0.1",3389,"TCP","BLOCK",0],
+  ["2025-06-01 08:04:35","10.10.10.77",33008,"10.0.0.1",5900,"TCP","BLOCK",0],
+  ["2025-06-01 08:05:00","172.16.0.200",61000,"10.0.0.1",443,"HTTPS","ALLOW",5120],
+  ["2025-06-01 08:05:10","172.16.0.200",61001,"10.0.0.1",443,"HTTPS","ALLOW",3840],
+  ["2025-06-01 08:05:20","172.16.0.201",61002,"10.0.0.1",443,"HTTPS","ALLOW",2048],
+  ["2025-06-01 08:06:00","198.51.100.9",55000,"10.0.0.1",4444,"TCP","BLOCK",0],
+  ["2025-06-01 08:06:05","198.51.100.9",55001,"10.0.0.1",1337,"TCP","BLOCK",0],
+  ["2025-06-01 08:06:10","198.51.100.9",55002,"10.0.0.1",31337,"TCP","BLOCK",0],
+  ["2025-06-01 08:06:15","198.51.100.9",55003,"10.0.0.1",9001,"TCP","BLOCK",0],
+  ["2025-06-01 08:07:00","192.168.1.50",47000,"10.0.0.2",80,"HTTP","ALLOW",820],
+  ["2025-06-01 08:07:05","192.168.1.50",47001,"10.0.0.2",8080,"HTTP","ALLOW",660],
+  ["2025-06-01 08:07:30","192.168.1.50",47002,"10.0.0.2",443,"HTTPS","ALLOW",1100],
+  ["2025-06-01 08:08:00","10.10.10.77",33009,"10.0.0.1",53,"UDP","BLOCK",0],
+  ["2025-06-01 08:08:05","10.10.10.77",33010,"10.0.0.1",161,"UDP","BLOCK",0],
+  ["2025-06-01 08:09:00","203.0.113.45",44236,"10.0.0.1",22,"TCP","BLOCK",0],
+  ["2025-06-01 08:09:05","203.0.113.45",44237,"10.0.0.1",22,"TCP","BLOCK",0],
+  ["2025-06-01 08:09:10","203.0.113.45",44238,"10.0.0.1",2222,"TCP","BLOCK",0],
+  ["2025-06-01 08:09:15","203.0.113.45",44239,"10.0.0.1",2222,"TCP","BLOCK",0],
+  ["2025-06-01 08:10:00","192.168.1.5",58100,"10.0.0.1",80,"HTTP","ALLOW",512],
+  ["2025-06-01 08:10:05","8.8.8.8",53,"10.0.0.1",53,"UDP","ALLOW",128],
+  ["2025-06-01 08:10:10","8.8.4.4",53,"10.0.0.1",53,"UDP","ALLOW",128],
+  ["2025-06-01 08:11:00","185.220.101.33",60000,"10.0.0.1",22,"TCP","BLOCK",0],
+  ["2025-06-01 08:11:05","185.220.101.33",60001,"10.0.0.1",22,"TCP","BLOCK",0],
+  ["2025-06-01 08:11:10","185.220.101.33",60002,"10.0.0.1",22,"TCP","BLOCK",0],
+  ["2025-06-01 08:11:15","185.220.101.33",60003,"10.0.0.1",22,"TCP","BLOCK",0],
+  ["2025-06-01 08:12:00","10.0.0.99",45000,"10.0.0.1",3389,"TCP","BLOCK",0],
+  ["2025-06-01 08:12:05","10.0.0.99",45001,"10.0.0.1",3389,"TCP","BLOCK",0],
+  ["2025-06-01 08:13:00","192.168.1.101",52420,"10.0.0.3",8080,"HTTP","ALLOW",2200],
+  ["2025-06-01 08:13:10","192.168.2.15",49100,"10.0.0.1",80,"HTTP","ALLOW",740],
+  ["2025-06-01 08:14:00","192.168.3.99",51000,"8.8.8.8",53,"UDP","ALLOW",88],
+  ["2025-06-01 08:14:30","172.16.5.5",62000,"10.0.0.1",6667,"TCP","BLOCK",0],
+  ["2025-06-01 08:14:35","172.16.5.5",62001,"10.0.0.1",6668,"TCP","BLOCK",0],
+  ["2025-06-01 08:14:40","172.16.5.5",62002,"10.0.0.1",6669,"TCP","BLOCK",0],
+  ["2025-06-01 08:15:00","10.10.10.77",33011,"10.0.0.1",135,"TCP","BLOCK",0],
+  ["2025-06-01 08:15:05","10.10.10.77",33012,"10.0.0.1",139,"TCP","BLOCK",0],
+  ["2025-06-01 08:15:10","10.10.10.77",33013,"10.0.0.1",445,"TCP","BLOCK",0],
+];
+
+// ============================================================
+// 2.  SUSPICIOUS PORT LIST — ports associated with attacks/backdoors
+// ============================================================
+const SUSPICIOUS_PORTS = new Set([
+  21,23,25,69,111,135,137,139,161,445,512,513,514,
+  1080,1337,1433,1521,3306,3389,4444,5432,5900,5901,
+  6660,6661,6662,6663,6664,6665,6666,6667,6668,6669,
+  8443,31337
+]);
+
+// ============================================================
+// 3.  VULNERABILITY DATABASE — sample CVEs
+//     Format: { id, name, affectedVersions[], severity, desc, action }
+// ============================================================
+const VULN_DB = [
+  { id:"CVE-2021-44228", name:"Log4j",         affectedVersions:["2.0","2.1","2.14","2.14.1"],            severity:"critical", desc:"Remote code execution via JNDI lookup",           action:"Upgrade to Log4j 2.17.1 immediately" },
+  { id:"CVE-2021-34527", name:"Windows",        affectedVersions:["10","Server 2019","Server 2016"],       severity:"high",     desc:"PrintNightmare — print spooler RCE",              action:"Apply MS security update KB5004945" },
+  { id:"CVE-2022-22965", name:"Spring Framework",affectedVersions:["5.3.0","5.2.0","5.3.17"],             severity:"critical", desc:"Spring4Shell — RCE via data binding",             action:"Upgrade to Spring 5.3.18 or 5.2.20" },
+  { id:"CVE-2019-0708",  name:"OpenSSH",        affectedVersions:["7.2","7.4","7.6","7.8"],               severity:"critical", desc:"BlueKeep — unauthenticated RCE via RDP",          action:"Apply patches; disable RDP if unused" },
+  { id:"CVE-2017-5638",  name:"Apache Struts",  affectedVersions:["2.3.5","2.3.31","2.5.10"],             severity:"critical", desc:"Remote code execution via Content-Type header",   action:"Upgrade to Struts 2.5.30+" },
+  { id:"CVE-2020-1472",  name:"Samba",          affectedVersions:["4.0","4.1","4.10"],                    severity:"critical", desc:"Zerologon — privilege escalation to domain admin", action:"Apply security patches immediately" },
+  { id:"CVE-2021-26855", name:"Microsoft Exchange",affectedVersions:["2013","2016","2019"],               severity:"critical", desc:"ProxyLogon — SSRF to RCE chain",                  action:"Apply KB5001779 patch" },
+  { id:"CVE-2022-0778",  name:"OpenSSL",        affectedVersions:["1.0.2","1.1.1","3.0"],                 severity:"high",     desc:"Infinite loop in BN_mod_sqrt()",                  action:"Upgrade to OpenSSL 3.0.2 / 1.1.1n" },
+  { id:"CVE-2023-44487", name:"nginx",          affectedVersions:["1.18","1.20","1.22"],                  severity:"high",     desc:"HTTP/2 Rapid Reset DDoS amplification",           action:"Upgrade nginx; apply rate limiting" },
+  { id:"CVE-2021-3156",  name:"sudo",           affectedVersions:["1.8","1.9","1.9.5"],                   severity:"high",     desc:"Heap overflow — local privilege escalation",      action:"Upgrade sudo to 1.9.5p2+" },
+  { id:"CVE-2020-0601",  name:"Windows",        affectedVersions:["10","Server 2016","Server 2019"],      severity:"high",     desc:"CurveBall — certificate validation bypass",       action:"Apply MS20-601 cumulative update" },
+  { id:"CVE-2018-11776", name:"Apache Struts",  affectedVersions:["2.3","2.5","2.5.16"],                  severity:"high",     desc:"RCE via namespace handling without required value",action:"Upgrade to Struts 2.3.35 / 2.5.17" },
+  { id:"CVE-2023-23397", name:"Microsoft Exchange",affectedVersions:["2016","2019","2013"],               severity:"high",     desc:"NTLM hash leak via calendar invitation",         action:"Apply March 2023 Exchange patch" },
+  { id:"CVE-2019-11043", name:"PHP",            affectedVersions:["7.0","7.1","7.2","7.3"],               severity:"critical", desc:"RCE via environment variable in php-fpm",        action:"Upgrade PHP to 7.3.11+ / 7.2.24+" },
+  { id:"CVE-2022-26134", name:"Confluence",     affectedVersions:["6.0","7.0","7.18","7.13"],             severity:"critical", desc:"OGNL injection — unauthenticated RCE",           action:"Apply Confluence 7.4.17 / 7.18.1 patch" },
+];
+
+// ============================================================
+// 4.  SOFTWARE INVENTORY — default components
+// ============================================================
+let inventory = [
+  { name:"Log4j",            version:"2.14.1",    type:"Library",   vendor:"Apache",    updated:"2021-11-12", status:"vulnerable" },
+  { name:"OpenSSL",          version:"1.0.2",     type:"Library",   vendor:"OpenSSL",   updated:"2019-09-10", status:"vulnerable" },
+  { name:"nginx",            version:"1.18",      type:"Web Server",vendor:"nginx Inc.", updated:"2023-01-05", status:"vulnerable" },
+  { name:"sudo",             version:"1.9",       type:"Service",   vendor:"Todd C. Miller",updated:"2021-01-01",status:"vulnerable"},
+  { name:"OpenSSH",          version:"8.6",       type:"Service",   vendor:"OpenBSD",   updated:"2023-03-15", status:"ok" },
+  { name:"Spring Framework", version:"5.3.0",     type:"Framework", vendor:"VMware",    updated:"2022-01-10", status:"vulnerable" },
+  { name:"Apache Tomcat",    version:"9.0.65",    type:"Web Server",vendor:"Apache",    updated:"2022-07-20", status:"ok" },
+  { name:"MySQL",            version:"8.0.28",    type:"Database",  vendor:"Oracle",    updated:"2022-02-01", status:"ok" },
+  { name:"PHP",              version:"7.2",       type:"Library",   vendor:"PHP Group", updated:"2019-06-20", status:"vulnerable" },
+  { name:"Windows",          version:"10",        type:"OS",        vendor:"Microsoft", updated:"2021-06-08", status:"vulnerable" },
+  { name:"Samba",            version:"4.10",      type:"Service",   vendor:"Samba Team",updated:"2020-09-14", status:"vulnerable" },
+  { name:"UFW Firewall",     version:"0.36.1",    type:"Firewall",  vendor:"Canonical", updated:"2023-04-01", status:"ok" },
+];
+
+// ============================================================
+// 5.  APP STATE
+// ============================================================
+let logs = [];            // current log entries
+let threats = [];         // detected threats
+let lastScanResults = []; // last vuln scan output
+
+// ============================================================
+// 6.  NAVIGATION
+// ============================================================
+const PAGE_META = {
+  dashboard: { title:"Dashboard",           sub:"Overview & Summary" },
+  logs:      { title:"Firewall Logs",       sub:"Upload & Inspect Entries" },
+  threats:   { title:"Threat Analysis",     sub:"Suspicious Activity Detected" },
+  vulns:     { title:"Vulnerability Scanner",sub:"Dependency & CVE Analysis" },
+  inventory: { title:"SW Inventory",        sub:"Software Component Registry" },
+  report:    { title:"Security Report",     sub:"Export & Analysis Summary" },
+};
+
+function navigate(page) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('sec-' + page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.textContent.toLowerCase().includes(PAGE_META[page].title.toLowerCase().split(' ')[0])) {
+      n.classList.add('active');
+    }
+  });
+  const m = PAGE_META[page];
+  document.getElementById('pageTitle').textContent = m.title;
+  document.getElementById('pageSubtitle').textContent = m.sub;
+  closeSidebar();
+
+  // Trigger section-specific renders
+  if (page === 'report') buildReport();
+}
+
+// ============================================================
+// 7.  SIDEBAR TOGGLE (mobile)
+// ============================================================
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('show');
+}
+
+// ============================================================
+// 8.  CLOCK
+// ============================================================
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clockDisplay').textContent =
+    now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ============================================================
+// 9.  LOG PARSING
+//     Accepts raw CSV lines: timestamp,srcIP,srcPort,dstIP,dstPort,proto,action,bytes
+// ============================================================
+function parseLogLine(line) {
+  const cols = line.split(',');
+  if (cols.length < 7) return null;
+  return {
+    timestamp: cols[0].trim(),
+    srcIP:     cols[1].trim(),
+    srcPort:   parseInt(cols[2]) || 0,
+    dstIP:     cols[3].trim(),
+    dstPort:   parseInt(cols[4]) || 0,
+    protocol:  cols[5].trim().toUpperCase(),
+    action:    cols[6].trim().toUpperCase(),
+    bytes:     parseInt(cols[7]) || 0,
+  };
+}
+
+function loadSampleLogs() {
+  logs = SAMPLE_LOGS.map(row => ({
+    timestamp: row[0], srcIP: row[1], srcPort: row[2],
+    dstIP: row[3], dstPort: row[4], protocol: row[5],
+    action: row[6], bytes: row[7]
+  }));
+  processLogs();
+}
+
+// ============================================================
+// 10.  FILE UPLOAD HANDLER
+// ============================================================
+function handleFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const lines = text.split('\n').filter(l => l.trim() && !l.startsWith('#'));
+    // Skip CSV header if present
+    const start = lines[0].toLowerCase().includes('timestamp') ? 1 : 0;
+    const parsed = lines.slice(start).map(parseLogLine).filter(Boolean);
+    if (parsed.length === 0) {
+      alert('No valid log entries found. Expected CSV format:\ntimestamp,srcIP,srcPort,dstIP,dstPort,protocol,action,bytes');
+      return;
+    }
+    logs = parsed;
+    processLogs();
+    navigate('logs');
+  };
+  reader.readAsText(file);
+}
+
+function handleDrop(event) {
+  event.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag-over');
+  const file = event.dataTransfer.files[0];
+  if (file) {
+    const fakeEvt = { target: { files: [file] } };
+    handleFileUpload(fakeEvt);
+  }
+}
+
+// ============================================================
+// 11.  PROCESS LOGS — run analysis after loading
+// ============================================================
+function processLogs() {
+  detectThreats();
+  renderDashboard();
+  renderLogTable();
+  renderThreats();
+  renderInventoryTable();
+  updateBadges();
+}
+
+// ============================================================
+// 12.  THREAT DETECTION ENGINE
+//      Rules applied to log array; returns threats[]
+// ============================================================
+function detectThreats() {
+  threats = [];
+  const ipStats = {}; // { ip: { total, blocked, ports, timestamps } }
+
+  // Build per-IP statistics
+  logs.forEach(log => {
+    const ip = log.srcIP;
+    if (!ipStats[ip]) {
+      ipStats[ip] = { total: 0, blocked: 0, ports: new Set(), timestamps: [], suspPorts: [] };
+    }
+    ipStats[ip].total++;
+    if (log.action === 'BLOCK') ipStats[ip].blocked++;
+    ipStats[ip].ports.add(log.dstPort);
+    ipStats[ip].timestamps.push(log.timestamp);
+    if (SUSPICIOUS_PORTS.has(log.dstPort)) ipStats[ip].suspPorts.push(log.dstPort);
+  });
+
+  Object.entries(ipStats).forEach(([ip, s]) => {
+    let reasons = [];
+    let maxRisk = 0; // 1=low, 2=medium, 3=high
+
+    // Rule 1: many blocked connections (brute-force / DoS attempt)
+    if (s.blocked >= 8) {
+      reasons.push(`${s.blocked} blocked connections — possible brute-force`);
+      maxRisk = Math.max(maxRisk, 3);
+    } else if (s.blocked >= 4) {
+      reasons.push(`${s.blocked} blocked connections — repeated access failures`);
+      maxRisk = Math.max(maxRisk, 2);
+    } else if (s.blocked >= 2) {
+      reasons.push(`${s.blocked} blocked connections — access denied`);
+      maxRisk = Math.max(maxRisk, 1);
+    }
+
+    // Rule 2: port scanning — many distinct destination ports
+    if (s.ports.size >= 8) {
+      reasons.push(`Accessed ${s.ports.size} distinct ports — port scan detected`);
+      maxRisk = Math.max(maxRisk, 3);
+    } else if (s.ports.size >= 5) {
+      reasons.push(`Accessed ${s.ports.size} distinct ports — possible reconnaissance`);
+      maxRisk = Math.max(maxRisk, 2);
+    }
+
+    // Rule 3: high total traffic from single IP
+    if (s.total >= 12) {
+      reasons.push(`${s.total} total log entries — high-volume traffic`);
+      maxRisk = Math.max(maxRisk, 2);
+    }
+
+    // Rule 4: access to suspicious ports
+    if (s.suspPorts.length >= 3) {
+      reasons.push(`Targeted suspicious ports: ${[...new Set(s.suspPorts)].join(', ')}`);
+      maxRisk = Math.max(maxRisk, 3);
+    } else if (s.suspPorts.length >= 1) {
+      reasons.push(`Targeted suspicious port(s): ${[...new Set(s.suspPorts)].join(', ')}`);
+      maxRisk = Math.max(maxRisk, 2);
+    }
+
+    if (reasons.length === 0) return; // no suspicious activity
+
+    const riskLabel = maxRisk === 3 ? 'high' : maxRisk === 2 ? 'medium' : 'low';
+    const rec = maxRisk === 3 ? 'Block IP'
+              : maxRisk === 2 ? 'Investigate Activity'
+              : 'Monitor IP';
+
+    threats.push({
+      ip, reasons, risk: riskLabel, rec,
+      blocked: s.blocked, total: s.total, ports: s.ports.size
+    });
+  });
+
+  // Sort: high first, then by blocked count descending
+  const ord = { high: 0, medium: 1, low: 2 };
+  threats.sort((a, b) => (ord[a.risk] - ord[b.risk]) || (b.blocked - a.blocked));
+}
+
+// ============================================================
+// 13.  DASHBOARD RENDER
+// ============================================================
+function renderDashboard() {
+  const total   = logs.length;
+  const allowed = logs.filter(l => l.action === 'ALLOW').length;
+  const blocked = logs.filter(l => l.action === 'BLOCK').length;
+  const high    = threats.filter(t => t.risk === 'high').length;
+  const medium  = threats.filter(t => t.risk === 'medium').length;
+  const low     = threats.filter(t => t.risk === 'low').length;
+  const vulnCount = inventory.filter(c => c.status === 'vulnerable').length;
+
+  // Stat cards
+  document.getElementById('s-total').textContent   = total;
+  document.getElementById('s-allowed').textContent = allowed;
+  document.getElementById('s-blocked').textContent = blocked;
+  document.getElementById('s-threats').textContent = threats.length;
+  document.getElementById('s-high').textContent    = high;
+  document.getElementById('s-medium').textContent  = medium;
+  document.getElementById('s-low').textContent     = low;
+  document.getElementById('s-vuln').textContent    = vulnCount;
+
+  // Legend
+  document.getElementById('lg-allowed').textContent  = allowed;
+  document.getElementById('lg-blocked').textContent  = blocked;
+  document.getElementById('lg-threats').textContent  = threats.length;
+  document.getElementById('lg-vuln').textContent     = vulnCount;
+
+  // Donut chart — two arcs: allowed (green) and blocked (red)
+  const circ = 2 * Math.PI * 40; // ~251.3
+  const allowedArc = total > 0 ? (allowed / total) * circ : 0;
+  const blockedArc = total > 0 ? (blocked / total) * circ : 0;
+  const allowedEl = document.getElementById('donut-allowed');
+  const blockedEl = document.getElementById('donut-blocked');
+  allowedEl.setAttribute('stroke-dasharray', `${allowedArc.toFixed(1)} ${circ.toFixed(1)}`);
+  // Offset blocked arc to start after allowed arc
+  const blockedOffset = circ * 0.25 - allowedArc; // 0.25 = -90deg transform
+  blockedEl.setAttribute('stroke-dasharray', `${blockedArc.toFixed(1)} ${circ.toFixed(1)}`);
+  blockedEl.setAttribute('stroke-dashoffset', `${(circ * 0.25 - allowedArc).toFixed(1)}`);
+  document.getElementById('donutPct').textContent =
+    total > 0 ? Math.round((blocked / total) * 100) + '% blk' : '–';
+
+  // IP bar chart — top 6 suspicious IPs by blocked count
+  renderIPBarChart();
+
+  // Alert banners
+  const banners = document.getElementById('alertBanners');
+  banners.innerHTML = '';
+  if (high > 0) banners.innerHTML += `<div class="alert-banner danger">🔴 <strong>${high} high-risk threat(s)</strong> detected. Immediate investigation required. Navigate to Threat Analysis.</div>`;
+  if (medium > 0) banners.innerHTML += `<div class="alert-banner warning">🟡 <strong>${medium} medium-risk alert(s)</strong> require monitoring. Review the Threat Analysis section.</div>`;
+  if (vulnCount > 0) banners.innerHTML += `<div class="alert-banner info">ℹ️ <strong>${vulnCount} software component(s)</strong> have known vulnerabilities. Run the Vulnerability Scanner.</div>`;
+
+  // Activity timeline — last 8 blocked events
+  const blocked8 = logs.filter(l => l.action === 'BLOCK').slice(-8).reverse();
+  const tl = document.getElementById('activityTimeline');
+  if (blocked8.length === 0) {
+    tl.innerHTML = '<div class="empty-state">No blocked events in logs.</div>';
+  } else {
+    tl.innerHTML = blocked8.map(l => `
+      <div class="tl-item">
+        <div class="tl-time">${l.timestamp.split(' ')[1] || l.timestamp.substring(11,19)}</div>
+        <div class="tl-dot-col">
+          <div class="tl-dot" style="background:var(--red)"></div>
+          <div class="tl-line"></div>
+        </div>
+        <div class="tl-body">
+          <div class="tl-title">🚫 Blocked — ${l.srcIP} → port ${l.dstPort}</div>
+          <div class="tl-sub">${l.protocol} &nbsp;·&nbsp; ${l.bytes} bytes &nbsp;·&nbsp; ${l.dstIP}</div>
+        </div>
+      </div>`).join('');
+  }
+}
+
+function renderIPBarChart() {
+  const ipBlocked = {};
+  logs.forEach(l => {
+    if (l.action === 'BLOCK') ipBlocked[l.srcIP] = (ipBlocked[l.srcIP] || 0) + 1;
+  });
+  const sorted = Object.entries(ipBlocked).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const max = sorted.length ? sorted[0][1] : 1;
+  const colors = ['var(--red)','var(--orange)','var(--yellow)','var(--accent)','var(--purple)','var(--green)'];
+  const el = document.getElementById('ipBarChart');
+  if (!sorted.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div>No blocked traffic</div>';
+    return;
+  }
+  el.innerHTML = sorted.map(([ip, cnt], i) => `
+    <div class="bar-row">
+      <div class="bar-label" title="${ip}">${ip}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${(cnt/max*100).toFixed(1)}%;background:${colors[i%colors.length]}"></div>
+      </div>
+      <div class="bar-val">${cnt}</div>
+    </div>`).join('');
+}
+
+// ============================================================
+// 14.  LOG TABLE RENDER
+// ============================================================
+function renderLogTable() {
+  const search    = document.getElementById('logSearch').value.toLowerCase();
+  const status    = document.getElementById('logStatusFilter').value;
+  const proto     = document.getElementById('logProtoFilter').value;
+
+  let filtered = logs.filter(l => {
+    if (search && !l.srcIP.includes(search) && !l.protocol.toLowerCase().includes(search) && !l.dstIP.includes(search)) return false;
+    if (status  && l.action   !== status) return false;
+    if (proto   && l.protocol !== proto)  return false;
+    return true;
+  });
+
+  document.getElementById('logCount').textContent = `${filtered.length} of ${logs.length} entries`;
+
+  const tbody = document.getElementById('logTableBody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No entries match the current filter.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((l, i) => `
+    <tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td style="font-size:11px">${l.timestamp}</td>
+      <td><code style="color:var(--accent)">${l.srcIP}</code></td>
+      <td>${l.srcPort}</td>
+      <td><code style="color:var(--muted)">${l.dstIP}</code></td>
+      <td>${SUSPICIOUS_PORTS.has(l.dstPort)
+        ? `<span style="color:var(--red)" title="Suspicious port">${l.dstPort} ⚠</span>`
+        : l.dstPort}</td>
+      <td><span class="badge badge-blue">${l.protocol}</span></td>
+      <td>${l.action === 'ALLOW'
+        ? '<span class="badge badge-green">✔ Allow</span>'
+        : '<span class="badge badge-red">✖ Block</span>'}</td>
+      <td>${l.bytes.toLocaleString()}</td>
+      <td>${l.action === 'ALLOW'
+        ? '<span class="badge badge-green">OK</span>'
+        : '<span class="badge badge-red">Denied</span>'}</td>
+    </tr>`).join('');
+}
+
+function resetLogFilters() {
+  document.getElementById('logSearch').value = '';
+  document.getElementById('logStatusFilter').value = '';
+  document.getElementById('logProtoFilter').value = '';
+  renderLogTable();
+}
+
+// ============================================================
+// 15.  THREAT LIST RENDER
+// ============================================================
+function renderThreats() {
+  const search  = document.getElementById('threatSearch').value.toLowerCase();
+  const riskF   = document.getElementById('threatRiskFilter').value;
+
+  let filtered = threats.filter(t => {
+    if (search && !t.ip.includes(search)) return false;
+    if (riskF  && t.risk !== riskF) return false;
+    return true;
+  });
+
+  const container = document.getElementById('threatList');
+  if (!filtered.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div>No threats match the current filter.</div>';
+    return;
+  }
+
+  const iconMap = { high: '🔴', medium: '🟡', low: '🟢' };
+  const recClass = { 'Block IP':'rec-block', 'Investigate Activity':'rec-investigate', 'Monitor IP':'rec-monitor' };
+
+  container.innerHTML = filtered.map(t => `
+    <div class="threat-item ${t.risk}">
+      <div class="threat-icon">${iconMap[t.risk]}</div>
+      <div class="threat-body">
+        <div class="threat-ip">${t.ip}</div>
+        <div class="threat-reason">${t.reasons.join(' &nbsp;·&nbsp; ')}</div>
+        <div class="threat-meta">
+          <span class="badge ${t.risk==='high'?'badge-red':t.risk==='medium'?'badge-yellow':'badge-green'}">${t.risk.toUpperCase()} RISK</span>
+          <span class="threat-count">Blocked: <strong>${t.blocked}</strong> &nbsp;|&nbsp; Total: <strong>${t.total}</strong> &nbsp;|&nbsp; Ports: <strong>${t.ports}</strong></span>
+          <span class="threat-rec ${recClass[t.rec]}">${t.rec}</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ============================================================
+// 16.  VULNERABILITY SCANNER
+// ============================================================
+function runVulnScan() {
+  lastScanResults = [];
+
+  inventory.forEach(comp => {
+    VULN_DB.forEach(vuln => {
+      // Match by component name (case-insensitive substring)
+      if (!comp.name.toLowerCase().includes(vuln.name.toLowerCase()) &&
+          !vuln.name.toLowerCase().includes(comp.name.toLowerCase())) return;
+
+      // Check if installed version matches an affected version
+      const affected = vuln.affectedVersions.some(av =>
+        comp.version.startsWith(av) || av.startsWith(comp.version)
+      );
+      if (!affected) return;
+
+      lastScanResults.push({ comp: comp.name, version: comp.version, vuln });
+    });
+  });
+
+  // Update inventory status based on scan
+  inventory.forEach(comp => {
+    const hit = lastScanResults.find(r => r.comp === comp.name);
+    comp.status = hit ? 'vulnerable' : 'ok';
+  });
+  renderInventoryTable();
+  updateBadges();
+
+  const el = document.getElementById('vulnResults');
+  if (!lastScanResults.length) {
+    el.innerHTML = '<div class="alert-banner info">✅ &nbsp;No known vulnerabilities found in the current inventory.</div>';
+    return;
+  }
+
+  const sevOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+  lastScanResults.sort((a, b) => sevOrder[a.vuln.severity] - sevOrder[b.vuln.severity]);
+
+  const sevBadge = {
+    critical: 'badge-red',
+    high:     'badge-red',
+    medium:   'badge-yellow',
+    low:      'badge-green'
+  };
+
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px">${
+    lastScanResults.map(r => `
+      <div class="vuln-item ${r.vuln.severity}">
+        <div class="vuln-main">
+          <div class="vuln-id">${r.vuln.id}</div>
+          <div class="vuln-name">${r.comp} ${r.version}</div>
+          <div class="vuln-desc">${r.vuln.desc}</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--accent)">🔧 ${r.vuln.action}</div>
+        </div>
+        <div class="vuln-side">
+          <span class="badge ${sevBadge[r.vuln.severity]}">${r.vuln.severity.toUpperCase()}</span>
+          <span style="font-size:11px;color:var(--muted)">Affected: v${r.vuln.affectedVersions.join(', v')}</span>
+        </div>
+      </div>`).join('')
+  }</div>`;
+}
+
+// ============================================================
+// 17.  INVENTORY TABLE RENDER
+// ============================================================
+function renderInventoryTable() {
+  const statusHTML = s => {
+    if (s === 'vulnerable') return '<span class="comp-status-vuln">⚠ Vulnerable</span>';
+    if (s === 'ok')         return '<span class="comp-status-ok">✔ OK</span>';
+    if (s === 'warn')       return '<span class="comp-status-warn">⚡ Warning</span>';
+    return '<span class="comp-status-unknown">? Unknown</span>';
+  };
+
+  document.getElementById('inventoryTableBody').innerHTML = inventory.map((c, i) => `
+    <tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td style="font-weight:600;color:#fff">${c.name}</td>
+      <td><code style="color:var(--accent)">${c.version}</code></td>
+      <td><span class="badge badge-blue">${c.type}</span></td>
+      <td style="color:var(--muted)">${c.vendor}</td>
+      <td style="color:var(--muted);font-size:12px">${c.updated}</td>
+      <td>${statusHTML(c.status)}</td>
+      <td><button class="btn" style="padding:3px 10px;font-size:11px" onclick="removeComponent(${i})">✖ Remove</button></td>
+    </tr>`).join('');
+}
+
+// ============================================================
+// 18.  ADD / REMOVE COMPONENT
+// ============================================================
+function showAddCompModal() {
+  document.getElementById('addCompModal').style.display = 'flex';
+}
+function closeAddCompModal() {
+  document.getElementById('addCompModal').style.display = 'none';
+}
+function addComponent() {
+  const name    = document.getElementById('nc-name').value.trim();
+  const version = document.getElementById('nc-version').value.trim();
+  const vendor  = document.getElementById('nc-vendor').value.trim();
+  const type    = document.getElementById('nc-type').value;
+  if (!name || !version) { alert('Please enter component name and version.'); return; }
+  inventory.push({ name, version, type, vendor: vendor || 'Unknown',
+    updated: new Date().toISOString().split('T')[0], status: 'unknown' });
+  closeAddCompModal();
+  renderInventoryTable();
+  updateBadges();
+}
+function removeComponent(idx) {
+  inventory.splice(idx, 1);
+  renderInventoryTable();
+  updateBadges();
+}
+
+// ============================================================
+// 19.  UPDATE SIDEBAR BADGES
+// ============================================================
+function updateBadges() {
+  document.getElementById('threatBadge').textContent = threats.length;
+  const vulnCount = inventory.filter(c => c.status === 'vulnerable').length;
+  document.getElementById('vulnBadge').textContent = vulnCount;
+  document.getElementById('s-vuln').textContent = vulnCount;
+  document.getElementById('lg-vuln').textContent = vulnCount;
+}
+
+// ============================================================
+// 20.  REPORT BUILDER
+// ============================================================
+function buildReport() {
+  const total   = logs.length;
+  const allowed = logs.filter(l => l.action === 'ALLOW').length;
+  const blocked = logs.filter(l => l.action === 'BLOCK').length;
+  const high    = threats.filter(t => t.risk === 'high').length;
+  const medium  = threats.filter(t => t.risk === 'medium').length;
+  const low     = threats.filter(t => t.risk === 'low').length;
+  const vulnCount = inventory.filter(c => c.status === 'vulnerable').length;
+
+  // KV summary
+  const kv = [
+    ['Report Date',       new Date().toLocaleDateString()],
+    ['Total Log Entries', total],
+    ['Allowed Connections', allowed],
+    ['Blocked Connections', blocked],
+    ['Threats Detected',  threats.length],
+    ['High Risk Alerts',  high],
+    ['Medium Risk Alerts',medium],
+    ['Low Risk Alerts',   low],
+    ['SW Components',     inventory.length],
+    ['Vulnerable Components', vulnCount],
+  ];
+  document.getElementById('reportKV').innerHTML = kv.map(([k,v]) => `
+    <div class="kv-pair"><div class="kv-key">${k}</div><div class="kv-val">${v}</div></div>`).join('');
+
+  // Threat summary table
+  document.getElementById('reportThreats').innerHTML = threats.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>IP Address</th><th>Risk</th><th>Blocked</th><th>Ports Scanned</th><th>Recommendation</th></tr></thead>
+      <tbody>${threats.map(t => `
+        <tr>
+          <td><code style="color:var(--accent)">${t.ip}</code></td>
+          <td><span class="badge ${t.risk==='high'?'badge-red':t.risk==='medium'?'badge-yellow':'badge-green'}">${t.risk.toUpperCase()}</span></td>
+          <td>${t.blocked}</td>
+          <td>${t.ports}</td>
+          <td style="color:var(--accent)">${t.rec}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>` : '<div class="empty-state">No threats detected.</div>';
+
+  // Vulnerable components
+  const vulnComps = inventory.filter(c => c.status === 'vulnerable');
+  document.getElementById('reportVulns').innerHTML = vulnComps.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Component</th><th>Version</th><th>Type</th><th>Vendor</th><th>Status</th></tr></thead>
+      <tbody>${vulnComps.map(c => `
+        <tr>
+          <td style="font-weight:600;color:#fff">${c.name}</td>
+          <td><code style="color:var(--red)">${c.version}</code></td>
+          <td><span class="badge badge-blue">${c.type}</span></td>
+          <td>${c.vendor}</td>
+          <td><span class="badge badge-red">⚠ Vulnerable</span></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>` : '<div class="empty-state">No vulnerable components found.</div>';
+
+  // Top blocked IPs
+  const ipBlocked = {};
+  logs.forEach(l => { if (l.action === 'BLOCK') ipBlocked[l.srcIP] = (ipBlocked[l.srcIP] || 0) + 1; });
+  const sorted = Object.entries(ipBlocked).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  document.getElementById('reportBlockedIPs').innerHTML = sorted.length ? `
+    <div class="table-wrap"><table>
+      <thead><tr><th>Source IP</th><th>Blocked Count</th><th>Threat Level</th></tr></thead>
+      <tbody>${sorted.map(([ip, cnt]) => {
+        const t = threats.find(th => th.ip === ip);
+        return `<tr>
+          <td><code style="color:var(--accent)">${ip}</code></td>
+          <td><strong>${cnt}</strong></td>
+          <td>${t ? `<span class="badge ${t.risk==='high'?'badge-red':t.risk==='medium'?'badge-yellow':'badge-green'}">${t.risk.toUpperCase()}</span>` : '<span class="badge badge-muted">N/A</span>'}</td>
+        </tr>`;}).join('')}
+      </tbody>
+    </table></div>` : '<div class="empty-state">No blocked traffic detected.</div>';
+}
+
+// ============================================================
+// 21.  DOWNLOAD REPORT
+//      Generates a plain-text report and triggers download
+// ============================================================
+function downloadReport() {
+  const now = new Date().toLocaleString();
+  const line = '='.repeat(60);
+  const total   = logs.length;
+  const allowed = logs.filter(l => l.action === 'ALLOW').length;
+  const blocked = logs.filter(l => l.action === 'BLOCK').length;
+
+  let txt = `FIREWALL LOG THREAT ANALYZER — SECURITY REPORT\n${line}\nGenerated: ${now}\n\n`;
+  txt += `SUMMARY\n${'-'.repeat(40)}\n`;
+  txt += `Total Logs      : ${total}\nAllowed         : ${allowed}\nBlocked         : ${blocked}\n`;
+  txt += `Threats Detected: ${threats.length}\n  High   : ${threats.filter(t=>t.risk==='high').length}\n`;
+  txt += `  Medium : ${threats.filter(t=>t.risk==='medium').length}\n  Low    : ${threats.filter(t=>t.risk==='low').length}\n\n`;
+
+  txt += `THREAT ANALYSIS\n${'-'.repeat(40)}\n`;
+  if (threats.length) {
+    threats.forEach(t => {
+      txt += `IP: ${t.ip}  |  Risk: ${t.risk.toUpperCase()}  |  Blocked: ${t.blocked}  |  Rec: ${t.rec}\n`;
+      t.reasons.forEach(r => txt += `   - ${r}\n`);
+    });
+  } else {
+    txt += 'No threats detected.\n';
+  }
+
+  txt += `\nVULNERABLE COMPONENTS\n${'-'.repeat(40)}\n`;
+  const vulnComps = inventory.filter(c => c.status === 'vulnerable');
+  if (vulnComps.length) {
+    vulnComps.forEach(c => txt += `${c.name} v${c.version} (${c.type}) — ${c.vendor}\n`);
+  } else {
+    txt += 'No vulnerable components.\n';
+  }
+
+  txt += `\n${line}\nFirewall Log Threat Analyzer — SOC Dashboard v1.0\n`;
+
+  const blob = new Blob([txt], { type: 'text/plain' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `security-report-${Date.now()}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+// 22.  INIT — load sample data on page load
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  loadSampleLogs();
+  runVulnScan();    // auto-run vuln scan on startup
+});
+</script>
+</body>
+</html>
